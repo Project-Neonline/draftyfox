@@ -1,0 +1,167 @@
+.draftyfox-tooltip {
+  position: absolute;
+  z-index: 2147483647;
+  font-family: 'Courier New', monospace;
+  background: #09090b;
+  border: 1px solid #16a34a;
+  border-radius: 8px;
+  box-shadow: 0 0 20px rgba(22, 163, 74, 0.3);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 160px;
+  animation: draftyfox-fade-in 0.15s ease-out;
+}
+
+.draftyfox-tooltip-row {
+  display: flex;
+  gap: 4px;
+}
+
+.draftyfox-btn {
+  background: transparent;
+  border: 1px solid #16a34a;
+  color: #4ade80;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-family: 'Courier New', monospace;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  flex: 1;
+  white-space: nowrap;
+}
+
+.draftyfox-btn:hover {
+  background: rgba(22, 163, 74, 0.1);
+  box-shadow: 0 0 15px rgba(22, 163, 74, 0.4);
+  transform: scale(1.02);
+}
+
+.draftyfox-btn:active {
+  transform: scale(0.98);
+}
+
+.draftyfox-btn.draftyfox-btn-loading {
+  opacity: 0.6;
+  cursor: wait;
+  pointer-events: none;
+}
+
+.draftyfox-btn-custom {
+  background: rgba(22, 163, 74, 0.1);
+  border-style: dashed;
+}
+
+.draftyfox-custom-input {
+  background: #18181b;
+  border: 1px solid #27272a;
+  color: #4ade80;
+  padding: 8px 10px;
+  font-size: 11px;
+  font-family: 'Courier New', monospace;
+  border-radius: 4px;
+  width: 100%;
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.draftyfox-custom-input:focus {
+  border-color: #16a34a;
+  box-shadow: 0 0 10px rgba(22, 163, 74, 0.2);
+}
+
+.draftyfox-custom-input::placeholder {
+  color: #52525b;
+}
+
+.draftyfox-custom-row {
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.draftyfox-btn-submit {
+  background: #16a34a;
+  color: #000;
+  border-color: #16a34a;
+  flex: 0 0 auto;
+  padding: 6px 12px;
+}
+
+.draftyfox-btn-submit:hover {
+  background: #22c55e;
+  box-shadow: 0 0 20px rgba(22, 163, 74, 0.6);
+}
+
+.draftyfox-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  color: #4ade80;
+  font-size: 11px;
+  gap: 8px;
+}
+
+.draftyfox-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid #27272a;
+  border-top-color: #16a34a;
+  border-radius: 50%;
+  animation: draftyfox-spin 0.8s linear infinite;
+}
+
+.draftyfox-error {
+  color: #f87171;
+  font-size: 11px;
+  padding: 8px;
+  text-align: center;
+}
+
+.draftyfox-saved-prompts {
+  border-top: 1px solid #27272a;
+  padding-top: 6px;
+  margin-top: 2px;
+}
+
+.draftyfox-saved-label {
+  color: #52525b;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+  padding: 0 2px;
+}
+
+.draftyfox-btn-saved {
+  background: transparent;
+  border: 1px solid #27272a;
+  color: #a1a1aa;
+  font-size: 10px;
+}
+
+.draftyfox-btn-saved:hover {
+  border-color: #16a34a;
+  color: #4ade80;
+}
+
+@keyframes draftyfox-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes draftyfox-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

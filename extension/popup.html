@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DraftyFox Settings</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      width: 320px;
+      background: #09090b;
+      color: #4ade80;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      padding: 16px;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #27272a;
+    }
+
+    .logo {
+      font-size: 16px;
+      font-weight: bold;
+      color: #4ade80;
+      text-shadow: 0 0 10px rgba(22, 163, 74, 0.5);
+    }
+
+    .version {
+      color: #52525b;
+      font-size: 10px;
+    }
+
+    .section {
+      margin-bottom: 16px;
+    }
+
+    .section-title {
+      color: #a1a1aa;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+    }
+
+    .input-group {
+      margin-bottom: 12px;
+    }
+
+    label {
+      display: block;
+      color: #71717a;
+      font-size: 11px;
+      margin-bottom: 4px;
+    }
+
+    input[type="text"],
+    input[type="password"] {
+      width: 100%;
+      background: #18181b;
+      border: 1px solid #27272a;
+      color: #4ade80;
+      padding: 8px 10px;
+      font-size: 11px;
+      font-family: 'Courier New', monospace;
+      border-radius: 4px;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    input:focus {
+      border-color: #16a34a;
+      box-shadow: 0 0 10px rgba(22, 163, 74, 0.2);
+    }
+
+    input::placeholder {
+      color: #3f3f46;
+    }
+
+    .btn {
+      background: transparent;
+      border: 1px solid #16a34a;
+      color: #4ade80;
+      padding: 8px 12px;
+      font-size: 11px;
+      font-family: 'Courier New', monospace;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: all 0.2s;
+      width: 100%;
+    }
+
+    .btn:hover {
+      background: rgba(22, 163, 74, 0.1);
+      box-shadow: 0 0 15px rgba(22, 163, 74, 0.4);
+    }
+
+    .btn-primary {
+      background: #16a34a;
+      color: #000;
+    }
+
+    .btn-primary:hover {
+      background: #22c55e;
+      box-shadow: 0 0 20px rgba(22, 163, 74, 0.6);
+    }
+
+    .btn-sm {
+      padding: 4px 8px;
+      font-size: 10px;
+      width: auto;
+    }
+
+    .btn-danger {
+      border-color: #dc2626;
+      color: #f87171;
+    }
+
+    .btn-danger:hover {
+      background: rgba(220, 38, 38, 0.1);
+      box-shadow: 0 0 15px rgba(220, 38, 38, 0.4);
+    }
+
+    .prompts-list {
+      max-height: 120px;
+      overflow-y: auto;
+      margin-bottom: 8px;
+    }
+
+    .prompt-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 8px;
+      background: #18181b;
+      border: 1px solid #27272a;
+      border-radius: 4px;
+      margin-bottom: 4px;
+    }
+
+    .prompt-name {
+      color: #4ade80;
+      font-size: 11px;
+    }
+
+    .prompt-preview {
+      color: #52525b;
+      font-size: 9px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 180px;
+    }
+
+    .add-prompt-form {
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+      padding: 8px;
+      background: #18181b;
+      border: 1px dashed #27272a;
+      border-radius: 4px;
+      margin-top: 8px;
+    }
+
+    .add-prompt-form.visible {
+      display: flex;
+    }
+
+    .form-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .status {
+      text-align: center;
+      padding: 8px;
+      font-size: 11px;
+      border-radius: 4px;
+      margin-top: 8px;
+      display: none;
+    }
+
+    .status.success {
+      display: block;
+      background: rgba(22, 163, 74, 0.1);
+      border: 1px solid #16a34a;
+      color: #4ade80;
+    }
+
+    .status.error {
+      display: block;
+      background: rgba(220, 38, 38, 0.1);
+      border: 1px solid #dc2626;
+      color: #f87171;
+    }
+
+    .empty-state {
+      color: #52525b;
+      font-size: 10px;
+      text-align: center;
+      padding: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <span class="logo">DraftyFox</span>
+    <span class="version">v1.0.0</span>
+  </div>
+
+  <div class="section">
+    <div class="section-title">API Configuration</div>
+
+    <div class="input-group">
+      <label for="apiKey">API Key</label>
+      <input type="password" id="apiKey" placeholder="sk-..." autocomplete="off">
+    </div>
+
+    <div class="input-group">
+      <label for="baseUrl">Base URL</label>
+      <input type="text" id="baseUrl" placeholder="https://api.openai.com/v1">
+    </div>
+
+    <div class="input-group">
+      <label for="model">Model</label>
+      <input type="text" id="model" placeholder="gpt-4o">
+    </div>
+
+    <button class="btn btn-primary" id="saveSettings">Save Settings</button>
+    <div class="status" id="settingsStatus"></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Custom Prompts</div>
+
+    <div class="prompts-list" id="promptsList"></div>
+
+    <button class="btn" id="addPromptBtn">+ Add Custom Prompt</button>
+
+    <div class="add-prompt-form" id="addPromptForm">
+      <input type="text" id="promptName" placeholder="Prompt name (e.g., Formal)">
+      <input type="text" id="promptText" placeholder="Instruction (e.g., Make this more formal)">
+      <div class="form-row">
+        <button class="btn btn-sm" id="cancelPrompt">Cancel</button>
+        <button class="btn btn-sm btn-primary" id="savePrompt">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="dist/popup.js"></script>
+</body>
+</html>
