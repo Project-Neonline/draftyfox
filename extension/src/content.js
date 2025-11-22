@@ -71,79 +71,17 @@ async function getSettings() {
 function extractPageContext() {
   const title = document.title || '';
   const url = window.location.href;
+  let text = document.body.innerText || document.body.textContent || '';
 
-  const chatSelectors = [
-    '[class*="message-list"]', '[class*="chat-messages"]', '[class*="conversation"]',
-    '[class*="MessageList"]', '[class*="ChatMessages"]', '[class*="messages-container"]',
-    '[data-testid*="message"]', '[role="log"]', '[aria-label*="message"]',
-    '.messages', '.chat', '.thread', '.conversation',
-    '[class*="msg-list"]', '[class*="thread-messages"]'
-  ];
-
-  const messageSelectors = [
-    '[class*="message"]', '[class*="Message"]', '[class*="chat-item"]',
-    '[data-testid*="message"]', '[role="listitem"]', '[class*="msg"]',
-    '.message', '.chat-message', '.msg'
-  ];
-
-  let chatContainer = null;
-  for (const selector of chatSelectors) {
-    chatContainer = document.querySelector(selector);
-    if (chatContainer) break;
-  }
-
-  let text = '';
-  let isChat = false;
-
-  if (chatContainer) {
-    isChat = true;
-    const messages = [];
-    const seen = new Set();
-
-    for (const selector of messageSelectors) {
-      const found = chatContainer.querySelectorAll(selector);
-      if (found.length > 0) {
-        found.forEach(msg => {
-          if (msg.querySelector(selector)) return;
-
-          const clone = msg.cloneNode(true);
-          clone.querySelectorAll('script, style, button, [class*="reaction"], [class*="emoji-picker"], [class*="avatar"], [class*="timestamp"], time').forEach(el => el.remove());
-          const msgText = (clone.innerText || clone.textContent || '').replace(/\s+/g, ' ').trim();
-
-          if (msgText && msgText.length > 2 && !seen.has(msgText)) {
-            seen.add(msgText);
-            messages.push(msgText);
-          }
-        });
-        break;
-      }
-    }
-
-    const recentMessages = messages.slice(-30);
-    text = recentMessages.join('\n');
-  } else {
-    const mainContent = document.querySelector('main, article, [role="main"], .content, #content');
-    const contentSource = mainContent || document.body;
-
-    const clone = contentSource.cloneNode(true);
-    clone.querySelectorAll('script, style, noscript, iframe, nav, header, footer, aside, [role="navigation"], [role="banner"], [role="contentinfo"]').forEach(el => el.remove());
-
-    text = (clone.innerText || clone.textContent || '').replace(/\s+/g, ' ').trim();
-  }
-
-  const maxLength = 6000;
+  const maxLength = 8000;
   if (text.length > maxLength) {
     text = text.substring(text.length - maxLength);
-    const firstBreak = text.indexOf('\n');
-    if (firstBreak > 0 && firstBreak < 200) {
-      text = text.substring(firstBreak + 1);
-    }
   }
 
-  console.log('[DraftyFox] Page context extracted:', { title, url, isChat, textLength: text.length });
-  console.log('[DraftyFox] Content:', text);
+  console.log('[DraftyFox] Page context:', { title, url, textLength: text.length });
+  console.log('[DraftyFox] Raw text:', text);
 
-  return { title, url, text, isChat };
+  return { title, url, text };
 }
 
 async function processText(text, systemPrompt) {

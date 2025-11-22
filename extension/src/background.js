@@ -30,24 +30,13 @@ async function processText(text, systemPrompt, pageContext) {
 
   let contextPrompt = systemPrompt;
   if (pageContext?.text) {
-    if (pageContext.isChat) {
-      contextPrompt = `${systemPrompt}
+    contextPrompt = `${systemPrompt}
 
-This text is being written in a chat/messaging context. Match the conversational tone and style of the ongoing conversation. Keep the response natural and appropriate for the chat.
-
-Chat: ${pageContext.title}
-Recent conversation:
-${pageContext.text}`;
-    } else {
-      contextPrompt = `${systemPrompt}
-
-Use the following page context to better understand the tone, style, and subject matter. Adapt your response to match the context appropriately.
-
-Page: ${pageContext.title}
+Page context (use to match tone and style):
+Title: ${pageContext.title}
 URL: ${pageContext.url}
 Content:
 ${pageContext.text}`;
-    }
   }
 
   const response = await chat.invoke([
