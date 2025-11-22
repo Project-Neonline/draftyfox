@@ -1,12 +1,7 @@
+import prompts from '../prompts.json';
+
 const SENSITIVE_TYPES = ['password', 'email', 'tel', 'credit-card', 'ssn'];
 const SENSITIVE_AUTOCOMPLETE = ['current-password', 'new-password', 'cc-number', 'cc-csc', 'cc-exp'];
-
-const ACTIONS = [
-  { id: 'paraphrase', label: 'Paraphrase', prompt: 'Paraphrase the following text while keeping the same meaning. Return only the paraphrased text, nothing else.' },
-  { id: 'shorten', label: 'Shorten', prompt: 'Shorten the following text while preserving its core meaning. Be concise. Return only the shortened text, nothing else.' },
-  { id: 'expand', label: 'Expand', prompt: 'Expand the following text with more detail and context. Return only the expanded text, nothing else.' },
-  { id: 'improve', label: 'Improve', prompt: 'Improve the phrasing and clarity of the following text. Fix grammar and make it more professional. Return only the improved text, nothing else.' }
-];
 
 let tooltip = null;
 let currentTarget = null;
@@ -38,11 +33,30 @@ function isEditableElement(element) {
   return false;
 }
 
-function getSelectedTextInEditable(element) {
+function getSelectionContext(element) {
   if (element.isContentEditable) {
     const selection = window.getSelection();
     if (selection.rangeCount > 0 && selection.toString().trim()) {
-      return { text: selection.toString(), start: null, end: null, isContentEditable: true };
+      const range = selection.getRangeAt(0);
+      const container = range.commonAncestorContainer;
+      const fullText = container.textContent || '';
+      const selectedText = selection.toString();
+
+      const tempRange = document.createRange();
+      tempRange.selectNodeContents(container);
+      tempRange.setEnd(range.startContainer, range.startOffset);
+      const textBefore = tempRange.toString();
+
+      const textAfter = fullText.substring(textBefore.length + selectedText.length);
+
+      return {
+        selected: selectedText,
+        before: textBefore.slice(-500),
+        after: textAfter.slice(0, 500),
+        start: null,
+        end: null,
+        isContentEditable: true
+      };
     }
     return null;
   }
@@ -50,9 +64,17 @@ function getSelectedTextInEditable(element) {
   const start = element.selectionStart;
   const end = element.selectionEnd;
   if (start !== end && start !== null && end !== null) {
-    const text = element.value.substring(start, end);
-    if (text.trim()) {
-      return { text, start, end, isContentEditable: false };
+    const fullText = element.value;
+    const selected = fullText.substring(start, end);
+    if (selected.trim()) {
+      return {
+        selected,
+        before: fullText.substring(Math.max(0, start - 500), start),
+        after: fullText.substring(end, end + 500),
+        start,
+        end,
+        isContentEditable: false
+      };
     }
   }
   return null;
@@ -79,12 +101,11 @@ function extractPageContext() {
   }
 
   console.log('[DraftyFox] Page context:', { title, url, textLength: text.length });
-  console.log('[DraftyFox] Raw text:', text);
 
   return { title, url, text };
 }
 
-async function processText(text, systemPrompt) {
+async function processText(selectionContext, actionPrompt) {
   const pageContext = extractPageContext();
 
   return new Promise((resolve, reject) => {
@@ -95,7 +116,13 @@ async function processText(text, systemPrompt) {
       }
 
       chrome.runtime.sendMessage(
-        { type: 'processText', text, prompt: systemPrompt, pageContext },
+        {
+          type: 'processText',
+          selectionContext,
+          actionPrompt,
+          systemPrompt: prompts.systemPrompt,
+          pageContext
+        },
         response => {
           if (chrome.runtime.lastError) {
             const msg = chrome.runtime.lastError.message;
@@ -117,8 +144,8 @@ async function processText(text, systemPrompt) {
   });
 }
 
-function replaceText(element, selection, newText) {
-  if (selection.isContentEditable) {
+function replaceText(element, selectionContext, newText) {
+  if (selectionContext.isContentEditable) {
     const sel = window.getSelection();
     if (sel.rangeCount > 0) {
       const range = sel.getRangeAt(0);
@@ -127,42 +154,45 @@ function replaceText(element, selection, newText) {
       range.collapse(false);
     }
   } else {
-    const before = element.value.substring(0, selection.start);
-    const after = element.value.substring(selection.end);
+    const before = element.value.substring(0, selectionContext.start);
+    const after = element.value.substring(selectionContext.end);
     element.value = before + newText + after;
-    element.selectionStart = selection.start;
-    element.selectionEnd = selection.start + newText.length;
+    element.selectionStart = selectionContext.start;
+    element.selectionEnd = selectionContext.start + newText.length;
     element.dispatchEvent(new Event('input', { bubbles: true }));
   }
 }
 
-function createTooltip(x, y, selection, element) {
+function createTooltip(x, y, selectionContext, element) {
   removeTooltip();
 
   tooltip = document.createElement('div');
   tooltip.className = 'draftyfox-tooltip';
 
-  const row1 = document.createElement('div');
-  row1.className = 'draftyfox-tooltip-row';
+  const actions = prompts.actions;
+  const rows = [];
+  let currentRow = document.createElement('div');
+  currentRow.className = 'draftyfox-tooltip-row';
 
-  const row2 = document.createElement('div');
-  row2.className = 'draftyfox-tooltip-row';
-
-  ACTIONS.forEach((action, i) => {
+  actions.forEach((action, i) => {
+    if (i > 0 && i % 2 === 0) {
+      rows.push(currentRow);
+      currentRow = document.createElement('div');
+      currentRow.className = 'draftyfox-tooltip-row';
+    }
     const btn = document.createElement('button');
     btn.className = 'draftyfox-btn';
     btn.textContent = action.label;
-    btn.addEventListener('click', () => handleAction(action.prompt, selection, element, btn));
-    (i < 2 ? row1 : row2).appendChild(btn);
+    btn.addEventListener('click', () => handleAction(action.prompt, selectionContext, element));
+    currentRow.appendChild(btn);
   });
-
-  tooltip.appendChild(row1);
-  tooltip.appendChild(row2);
+  rows.push(currentRow);
+  rows.forEach(row => tooltip.appendChild(row));
 
   const customBtn = document.createElement('button');
   customBtn.className = 'draftyfox-btn draftyfox-btn-custom';
   customBtn.textContent = '+ Custom';
-  customBtn.addEventListener('click', () => showCustomInput(selection, element));
+  customBtn.addEventListener('click', () => showCustomInput(selectionContext, element));
   tooltip.appendChild(customBtn);
 
   getSettings().then(settings => {
@@ -183,7 +213,7 @@ function createTooltip(x, y, selection, element) {
         btn.className = 'draftyfox-btn draftyfox-btn-saved';
         btn.textContent = p.name;
         btn.title = p.prompt;
-        btn.addEventListener('click', () => handleAction(p.prompt, selection, element, btn));
+        btn.addEventListener('click', () => handleAction(p.prompt, selectionContext, element));
         savedRow.appendChild(btn);
       });
 
@@ -213,10 +243,10 @@ function createTooltip(x, y, selection, element) {
   tooltip.style.top = `${top + window.scrollY}px`;
 
   currentTarget = element;
-  currentSelection = selection;
+  currentSelection = selectionContext;
 }
 
-function showCustomInput(selection, element) {
+function showCustomInput(selectionContext, element) {
   if (!tooltip) return;
 
   const existing = tooltip.querySelector('.draftyfox-custom-row');
@@ -240,7 +270,7 @@ function showCustomInput(selection, element) {
   const handleSubmit = () => {
     const prompt = input.value.trim();
     if (prompt) {
-      handleAction(prompt + ' Return only the result, nothing else.', selection, element, submitBtn);
+      handleAction(prompt, selectionContext, element);
     }
   };
 
@@ -258,15 +288,15 @@ function showCustomInput(selection, element) {
   input.focus();
 }
 
-async function handleAction(prompt, selection, element, triggerBtn) {
+async function handleAction(actionPrompt, selectionContext, element) {
   if (!tooltip) return;
 
   const originalContent = tooltip.innerHTML;
   tooltip.innerHTML = '<div class="draftyfox-loading"><div class="draftyfox-spinner"></div>Processing...</div>';
 
   try {
-    const result = await processText(selection.text, prompt);
-    replaceText(element, selection, result);
+    const result = await processText(selectionContext, actionPrompt);
+    replaceText(element, selectionContext, result);
     removeTooltip();
   } catch (error) {
     tooltip.innerHTML = originalContent;
@@ -330,16 +360,16 @@ document.addEventListener('keydown', e => {
       return;
     }
 
-    const selection = getSelectedTextInEditable(activeElement);
-    console.log('[DraftyFox] Selection:', selection);
+    const selectionContext = getSelectionContext(activeElement);
+    console.log('[DraftyFox] Selection context:', selectionContext);
 
-    if (!selection) {
+    if (!selectionContext) {
       console.log('[DraftyFox] No selection found');
       return;
     }
 
     const pos = getSelectionPosition(activeElement);
-    createTooltip(pos.x, pos.y, selection, activeElement);
+    createTooltip(pos.x, pos.y, selectionContext, activeElement);
   }
 });
 
