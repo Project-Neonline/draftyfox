@@ -25,7 +25,7 @@ function isSensitiveField(element) {
   const id = (element.id || '').toLowerCase();
   const placeholder = (element.placeholder || '').toLowerCase();
 
-  const sensitivePatterns = ['password', 'passwd', 'secret', 'token', 'apikey', 'api_key', 'credit', 'card', 'cvv', 'ssn', 'social'];
+  const sensitivePatterns = ['password', 'passwd', 'secret', 'token', 'apikey', 'api_key', 'credit', 'cvv', 'ssn'];
   return sensitivePatterns.some(p => name.includes(p) || id.includes(p) || placeholder.includes(p));
 }
 
@@ -68,20 +68,114 @@ async function getSettings() {
   });
 }
 
-async function processText(text, systemPrompt) {
-  return new Promise((resolve, reject) => {
-    chrome.runtime.sendMessage(
-      { type: 'processText', text, prompt: systemPrompt },
-      response => {
-        if (chrome.runtime.lastError) {
-          reject(new Error(chrome.runtime.lastError.message));
-        } else if (response.success) {
-          resolve(response.result);
-        } else {
-          reject(new Error(response.error));
-        }
+function extractPageContext() {
+  const title = document.title || '';
+  const url = window.location.href;
+
+  const chatSelectors = [
+    '[class*="message-list"]', '[class*="chat-messages"]', '[class*="conversation"]',
+    '[class*="MessageList"]', '[class*="ChatMessages"]', '[class*="messages-container"]',
+    '[data-testid*="message"]', '[role="log"]', '[aria-label*="message"]',
+    '.messages', '.chat', '.thread', '.conversation',
+    '[class*="msg-list"]', '[class*="thread-messages"]'
+  ];
+
+  const messageSelectors = [
+    '[class*="message"]', '[class*="Message"]', '[class*="chat-item"]',
+    '[data-testid*="message"]', '[role="listitem"]', '[class*="msg"]',
+    '.message', '.chat-message', '.msg'
+  ];
+
+  let chatContainer = null;
+  for (const selector of chatSelectors) {
+    chatContainer = document.querySelector(selector);
+    if (chatContainer) break;
+  }
+
+  let text = '';
+  let isChat = false;
+
+  if (chatContainer) {
+    isChat = true;
+    const messages = [];
+    const seen = new Set();
+
+    for (const selector of messageSelectors) {
+      const found = chatContainer.querySelectorAll(selector);
+      if (found.length > 0) {
+        found.forEach(msg => {
+          if (msg.querySelector(selector)) return;
+
+          const clone = msg.cloneNode(true);
+          clone.querySelectorAll('script, style, button, [class*="reaction"], [class*="emoji-picker"], [class*="avatar"], [class*="timestamp"], time').forEach(el => el.remove());
+          const msgText = (clone.innerText || clone.textContent || '').replace(/\s+/g, ' ').trim();
+
+          if (msgText && msgText.length > 2 && !seen.has(msgText)) {
+            seen.add(msgText);
+            messages.push(msgText);
+          }
+        });
+        break;
       }
-    );
+    }
+
+    const recentMessages = messages.slice(-30);
+    text = recentMessages.join('\n');
+  } else {
+    const mainContent = document.querySelector('main, article, [role="main"], .content, #content');
+    const contentSource = mainContent || document.body;
+
+    const clone = contentSource.cloneNode(true);
+    clone.querySelectorAll('script, style, noscript, iframe, nav, header, footer, aside, [role="navigation"], [role="banner"], [role="contentinfo"]').forEach(el => el.remove());
+
+    text = (clone.innerText || clone.textContent || '').replace(/\s+/g, ' ').trim();
+  }
+
+  const maxLength = 6000;
+  if (text.length > maxLength) {
+    text = text.substring(text.length - maxLength);
+    const firstBreak = text.indexOf('\n');
+    if (firstBreak > 0 && firstBreak < 200) {
+      text = text.substring(firstBreak + 1);
+    }
+  }
+
+  console.log('[DraftyFox] Page context extracted:', { title, url, isChat, textLength: text.length });
+  console.log('[DraftyFox] Content:', text);
+
+  return { title, url, text, isChat };
+}
+
+async function processText(text, systemPrompt) {
+  const pageContext = extractPageContext();
+
+  return new Promise((resolve, reject) => {
+    try {
+      if (!chrome.runtime?.id) {
+        reject(new Error('Extension updated. Please refresh the page.'));
+        return;
+      }
+
+      chrome.runtime.sendMessage(
+        { type: 'processText', text, prompt: systemPrompt, pageContext },
+        response => {
+          if (chrome.runtime.lastError) {
+            const msg = chrome.runtime.lastError.message;
+            if (msg.includes('Extension context invalidated') || msg.includes('Receiving end does not exist')) {
+              reject(new Error('Extension updated. Please refresh the page.'));
+            } else {
+              reject(new Error(msg));
+            }
+          } else if (response?.success) {
+            resolve(response.result);
+          } else {
+            reject(new Error(response?.error || 'Unknown error'));
+          }
+        }
+      );
+    } catch (e) {
+      reject(new Error('Extension updated. Please refresh the page.'));
+    }
   });
 }
 
@@ -256,35 +350,53 @@ function removeTooltip() {
   currentSelection = null;
 }
 
-document.addEventListener('mouseup', e => {
-  if (tooltip?.contains(e.target)) return;
+function getCaretPosition(element) {
+  if (element.isContentEditable) {
+    const selection = window.getSelection();
+    if (selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0);
+      const rect = range.getBoundingClientRect();
+      return { x: rect.left, y: rect.bottom };
+    }
+  }
 
-  setTimeout(() => {
+  const rect = element.getBoundingClientRect();
+  return { x: rect.left + 10, y: rect.top + 20 };
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    removeTooltip();
+    return;
+  }
+
+  if (e.ctrlKey && !e.shiftKey && !e.altKey && e.key === 'm') {
+    e.preventDefault();
+
     const activeElement = document.activeElement;
+    console.log('[DraftyFox] Hotkey pressed, active element:', activeElement?.tagName, activeElement);
 
     if (!isEditableElement(activeElement) || isSensitiveField(activeElement)) {
-      removeTooltip();
+      console.log('[DraftyFox] Not an editable element or sensitive field');
       return;
     }
 
     const selection = getSelectedTextInEditable(activeElement);
+    console.log('[DraftyFox] Selection:', selection);
+
     if (!selection) {
-      removeTooltip();
+      console.log('[DraftyFox] No selection found');
       return;
     }
 
-    createTooltip(e.clientX, e.clientY, selection, activeElement);
-  }, 10);
+    const x = window.innerWidth / 2 - 80;
+    const y = window.innerHeight / 2 - 50;
+    createTooltip(x, y, selection, activeElement);
+  }
 });
 
 document.addEventListener('mousedown', e => {
   if (tooltip && !tooltip.contains(e.target)) {
-    removeTooltip();
-  }
-});
-
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') {
     removeTooltip();
   }
 });
