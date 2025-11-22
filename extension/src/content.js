@@ -258,18 +258,17 @@ function createTooltip(x, y, selection, element) {
 
   const rect = tooltip.getBoundingClientRect();
   const viewportWidth = window.innerWidth;
-  const viewportHeight = window.innerHeight;
 
-  let left = x;
-  let top = y + 10;
+  let left = x - rect.width / 2;
+  let top = y - rect.height - 10;
 
   if (left + rect.width > viewportWidth - 10) {
     left = viewportWidth - rect.width - 10;
   }
   if (left < 10) left = 10;
 
-  if (top + rect.height > viewportHeight - 10) {
-    top = y - rect.height - 10;
+  if (top < 10) {
+    top = y + 30;
   }
 
   tooltip.style.left = `${left + window.scrollX}px`;
@@ -350,18 +349,30 @@ function removeTooltip() {
   currentSelection = null;
 }
 
-function getCaretPosition(element) {
+function getSelectionPosition(element) {
   if (element.isContentEditable) {
     const selection = window.getSelection();
     if (selection.rangeCount > 0) {
       const range = selection.getRangeAt(0);
       const rect = range.getBoundingClientRect();
-      return { x: rect.left, y: rect.bottom };
+      return { x: rect.left + rect.width / 2, y: rect.top };
     }
   }
 
   const rect = element.getBoundingClientRect();
-  return { x: rect.left + 10, y: rect.top + 20 };
+  const computedStyle = window.getComputedStyle(element);
+  const lineHeight = parseInt(computedStyle.lineHeight) || parseInt(computedStyle.fontSize) * 1.2 || 20;
+  const paddingTop = parseInt(computedStyle.paddingTop) || 0;
+  const paddingLeft = parseInt(computedStyle.paddingLeft) || 0;
+
+  const text = element.value.substring(0, element.selectionStart);
+  const lines = text.split('\n');
+  const currentLineIndex = lines.length - 1;
+
+  const y = rect.top + paddingTop + (currentLineIndex * lineHeight);
+  const x = rect.left + paddingLeft + 50;
+
+  return { x, y };
 }
 
 document.addEventListener('keydown', e => {
@@ -389,9 +400,8 @@ document.addEventListener('keydown', e => {
       return;
     }
 
-    const x = window.innerWidth / 2 - 80;
-    const y = window.innerHeight / 2 - 50;
-    createTooltip(x, y, selection, activeElement);
+    const pos = getSelectionPosition(activeElement);
+    createTooltip(pos.x, pos.y, selection, activeElement);
   }
 });
 
